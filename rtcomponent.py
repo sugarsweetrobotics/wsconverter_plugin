@@ -254,8 +254,6 @@ class wsconverter(OpenRTM_aist.DataFlowComponentBase):
 		print 'Loading -', modulename
 		import handler
 		self._ws = handler.ws
-		
-		self._ws.write_message('hogehoge')
 		import imp
 		try:
 			sys.path.insert(0, os.getcwd())

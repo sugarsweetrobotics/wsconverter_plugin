@@ -23,8 +23,8 @@ def generate_value_dic(global_module, typename, root_name='_d_data', verbose=Fal
         for name, value in dic.items():
             if name.startswith('typedef'):
                 if type(value) is types.StringType:
-                    print value
-                    raw_input()
+                    #print value
+                    #raw_input()
                     pass
                 else:
                     _parse_dic(value_names, value, context)
@@ -66,8 +66,9 @@ def generate_value_dic(global_module, typename, root_name='_d_data', verbose=Fal
             elif type(value) == types.StringType:
                 _parse_str(value_names, value, context)
             else:
-                print '=' * 20
-                print value, type(value)
+                #print '=' * 20
+                #print value, type(value)
+                pass
 
 
     for name, values in typ_dic.items():

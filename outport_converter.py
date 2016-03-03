@@ -1,4 +1,63 @@
 
+_template = """
+import yaml, traceback
+import RTC
+import OpenRTM_aist
+
+_data = $CONSTRUCTOR
+_port = OpenRTM_aist.InPort("$NAME", _data)
+
+
+def convert(data, d_list):
+  print data
+$CODE
+  return data
+  
+
+def _sendData(d_list)
+  convert(_data, d_list)
+  _port.write()
+          
+def execute(comp, webSocketSender):
+    comp.addOutPort("out", _port)
+    webSocketSender.outport["out"] = _sendData
+          
+"""
+
+
+def create_outport_converter_module(parser, name, typename, verbose=False):
+    global_module = parser.global_module
+    filename = '%s_InPort_%s.py__' % (name, typename.replace('::', '_').strip())
+    f = open(filename, 'w')
+    import value_dic as vd
+    value_dic = vd.generate_value_dic(global_module, typename, root_name='data', verbose=verbose)
+    print '-------value-------'
+    import yaml
+    print yaml.dump(value_dic, default_flow_style=False)
+    
+    print '-------header-------'
+    code = vd.generate_header(value_dic)
+    print code
+    
+    #import inport_converter as ip
+    global _template
+    output = "%s" % _template
+    code = create_converter(value_dic, list_name='d_list', indent = '  ')
+    print '------data to list-----'
+    print code
+    output = output.replace('$NAME', name)
+    typs = global_module.find_types(typename)
+    output = output.replace('$CONSTRUCTOR', parser.generate_constructor_python(typs[0]))
+    output = output.replace('$CODE', code)
+    
+    import outport_converter as op
+    code = op.create_converter(value_dic)
+    print '------list to data-----'
+    print code
+    
+    f.write(output)
+    f.close()
+
 
 
 

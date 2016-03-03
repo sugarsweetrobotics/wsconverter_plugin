@@ -1,3 +1,5 @@
+import os, sys, json, traceback
+
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
@@ -5,8 +7,10 @@ from tornado.ioloop import PeriodicCallback
 
 from tornado.options import define, options, parse_command_line
 
+
 ws = None
 idl_plugin = None
+
 class IndexHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
@@ -22,10 +26,13 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
     _handshake_message = 'wasanbon_converter'
     _handshake_response = 'wasanbon_converter ready'
 
+    outports = {}
+    _verbose = True
+
     def open(self):
         self._ready = False
         self._test = False
-        print " - WebSocket opened" 
+        if self._verbose: print " - WebSocket opened" 
 
     def check_origin(self, origin):
         return True
@@ -45,7 +52,15 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
                 
             
         self.write_message(self._handshake_response)
-        print ' -- HandShake Okay.'
+        if self._verbose: ' -- HandShake Okay.'
+
+        try:
+            import rtcomponent
+            comp = rtcomponent.component
+            print comp.get_context(0).activate_component(comp.getObjRef())
+        except:
+            traceback.print_exc()
+
         self._ready = True
         global ws
         ws = self
@@ -62,8 +77,11 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
     def _on(self, message):
         if message.startswith('manager'):
             self._on_manager(message[len('manager')+1:])
+        elif message.startswith('OutPort'):
+            self._on_OutPort(message[len('OutPort')+1:])
 
     def _on_manager(self, message):
+        if self._verbose: print 'manager message: ', message
         if message.startswith('addInPort'):
             if self._onAddInPort(message[len('addInPort')+1:]):
                 print 'true'
@@ -71,10 +89,28 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
             else:
                 self.write_message('wsconverter addInPort false')
 
+        if message.startswith('addOutPort'):
+            if self._onAddOutPort(message[len('addOutPort')+1:]):
+                print 'true'
+                self.write_message('wsconverter addOutPort true')
+            else:
+                self.write_message('wsconverter addOutPort false')
+
+    def _on_OutPort(self, message):
+        if self._verbose: print 'OutPort message: ', message
+        d_ = json.loads(message.strip())
+        name = d_.keys()[0]
+        if not name in self.outports.keys():
+            print '# Error. No OutPort (name=%s) is registerd.' % name
+            return
+        self.outports[name](d_[name])
+            
+        
+
     def _onAddInPort(self, message):
         name = message.split(' ')[0].strip()
         typename = message.split(' ')[1].strip()
-        print '-', name, typename
+        print 'AddInPort', name, typename
 
         idl_plugin.parse()
         import inport_converter as ip
@@ -82,6 +118,22 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
         ip.create_inport_converter_module(idl_plugin.get_idl_parser(), name, typename, verbose=verbose)
 
         modulename = name.strip() + '_InPort_' + typename.replace('::', '_').strip()
+        print 'module:', modulename
+        import rtcomponent
+        rtcomponent.component.load(modulename)
+        return True
+
+    def _onAddOutPort(self, message):
+        name = message.split(' ')[0].strip()
+        typename = message.split(' ')[1].strip()
+        print 'AddOutPort', name, typename
+
+        idl_plugin.parse()
+        import outport_converter as op
+        verbose = True
+        op.create_outport_converter_module(idl_plugin.get_idl_parser(), name, typename, verbose=verbose)
+
+        modulename = name.strip() + '_OutPort_' + typename.replace('::', '_').strip()
         print 'module:', modulename
         import rtcomponent
         rtcomponent.component.load(modulename)
@@ -97,6 +149,14 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
     def on_close(self):
         #self.callback.stop()
         print " - WebSocket closed"
+        self._ready = False
+        import rtcomponent
+        try:
+            comp = rtcomponent.component
+            print comp.get_context(0).activate_component(comp.getObjRef())
+        except:
+            traceback.print_exc()
+        
 
 
     def _start_test_mode(self):
