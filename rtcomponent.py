@@ -251,12 +251,13 @@ class wsconverter(OpenRTM_aist.DataFlowComponentBase):
 	#	return RTC.RTC_OK
 	
 	def load(self, modulename):
+		module_dir = 'modules'
 		print 'Loading -', modulename
 		import handler
 		self._ws = handler.ws
 		import imp
 		try:
-			sys.path.insert(0, os.getcwd())
+			sys.path.insert(0, os.path.join(os.getcwd(), module_dir))
 			file, pathname, description = imp.find_module(modulename)
 			m = imp.load_module(modulename, file, pathname, description)
 			m.execute(self, self._ws)

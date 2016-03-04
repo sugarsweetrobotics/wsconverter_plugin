@@ -1,59 +1,67 @@
-
+import os, sys
 _template = """
 import yaml, traceback
 import RTC
 import OpenRTM_aist
 
 _data = $CONSTRUCTOR
-_port = OpenRTM_aist.InPort("$NAME", _data)
+_port = OpenRTM_aist.OutPort("$NAME", _data)
 
 
 def convert(data, d_list):
-  print data
+  it = iter(d_list)
 $CODE
+  print 'converted:', data
   return data
   
 
-def _sendData(d_list)
+def _sendData(d_list):
   convert(_data, d_list)
   _port.write()
           
 def execute(comp, webSocketSender):
-    comp.addOutPort("out", _port)
-    webSocketSender.outport["out"] = _sendData
+    comp.addOutPort("$NAME", _port)
+    webSocketSender.outports[u"$NAME"] = _sendData
           
 """
 
 
+
 def create_outport_converter_module(parser, name, typename, verbose=False):
+
+    module_dir = 'modules'
+    if not os.path.isdir(module_dir):
+        os.mkdir(module_dir)
     global_module = parser.global_module
-    filename = '%s_InPort_%s.py__' % (name, typename.replace('::', '_').strip())
-    f = open(filename, 'w')
+    filename = '%s_OutPort_%s.py' % (name, typename.replace('::', '_').strip())
+    f = open(os.path.join(module_dir, filename), 'w')
     import value_dic as vd
     value_dic = vd.generate_value_dic(global_module, typename, root_name='data', verbose=verbose)
-    print '-------value-------'
-    import yaml
-    print yaml.dump(value_dic, default_flow_style=False)
-    
-    print '-------header-------'
-    code = vd.generate_header(value_dic)
-    print code
-    
+    if verbose:
+        print '-------value-------'
+        import yaml
+        print yaml.dump(value_dic, default_flow_style=False)
+        
+        #print '-------header-------'
+        #code = vd.generate_header(value_dic)
+        #print code
+        
     #import inport_converter as ip
     global _template
     output = "%s" % _template
     code = create_converter(value_dic, list_name='d_list', indent = '  ')
-    print '------data to list-----'
-    print code
+    if verbose:
+        print '------data to list-----'
+        print code
     output = output.replace('$NAME', name)
     typs = global_module.find_types(typename)
     output = output.replace('$CONSTRUCTOR', parser.generate_constructor_python(typs[0]))
     output = output.replace('$CODE', code)
     
-    import outport_converter as op
-    code = op.create_converter(value_dic)
-    print '------list to data-----'
-    print code
+    #import outport_converter as op
+    #code = op.create_converter(value_dic)
+    #print '------list to data-----'
+    #print code
     
     f.write(output)
     f.close()
@@ -62,6 +70,9 @@ def create_outport_converter_module(parser, name, typename, verbose=False):
 
 
 def create_converter(value_dic, list_name= '_d_list', indent = '', context = ''):
+    int_types = ['long', 'long long', 'unsigned long', 'short', 'unsigned short', 'char', 'unsigned char', 'byte', 'unsigned byte', 'octet']
+    float_types = ['float', 'double', 'long double']
+
     indent_ = '' + indent
     code = ''
     keys_ = value_dic.keys()
@@ -74,14 +85,15 @@ def create_converter(value_dic, list_name= '_d_list', indent = '', context = '')
             context_name = context_name[:context_name.find('[')]
             type_name = key[key.find('<')+1:key.rfind('>')]
             code = code + '%s%s = []\n' % (indent_, context_name)
-            code = code + '%slen = int(%s[index_])\n' % (indent_, list_name)
-            code = code + '%sindex_ = index_ + 1\n' % (indent_)
+            #code = code + '%slen = int(%s[index_])\n' % (indent_, list_name)
+            code = code + '%slen = int(it.next())\n' % (indent_, list_name)
+            #code = code + '%sindex_ = index_ + 1\n' % (indent_)
             code = code + '%sfor i in range(len):\n' % (indent_)
             if type(value) is types.StringType:
                 if value == 'double' or value == 'float':
-                    code = code + '%s%s.append(float(%s[index_]))\n' % (indent_ + '  ', context_name, list_name)
+                    code = code + '%s%s.append(float(it.next()))\n' % (indent_ + '  ', context_name, list_name)
 
-                    code = code + '%sindex_ = index_ + 1\n' % (indent_ + '  ')
+                    #code = code + '%sindex_ = index_ + 1\n' % (indent_ + '  ')
             else:
                 constructor_code = admin.idl.generate_constructor_python(type_name)[0]
                 code = code + '%s%s.append(%s)\n' % (indent_+'  ', context_name, constructor_code)
@@ -100,8 +112,13 @@ def create_converter(value_dic, list_name= '_d_list', indent = '', context = '')
                 pass
         else:
             context_name = context + '.' + key if len(context) > 0 else key
-            code = code + '%s%s = %s[index_]\n' % (indent_, context_name, list_name)
-            code = code + '%sindex_ = index_ + 1\n' % (indent_)
+            if value in int_types:
+                code = code + '%s%s = int(it.next())\n' % (indent_, context_name)
+            elif value in float_types:
+                code = code + '%s%s = float(it.next())\n' % (indent_, context_name)
+            else:
+                code = code + '%s%s = (it.next())\n' % (indent_, context_name)
+            #code = code + '%sindex_ = index_ + 1\n' % (indent_)
                 #code = code + '%s%s.append(%s)\n' % (indent_, list_name, context_name) 
             pass
     return code

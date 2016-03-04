@@ -1,3 +1,5 @@
+import os, sys
+
 
 _template = """
 import yaml, traceback, json
@@ -45,9 +47,14 @@ def execute(comp, webSocketSender):
 
 
 def create_inport_converter_module(parser, name, typename, verbose=False):
+    module_dir = 'modules'
+    if not os.path.isdir(module_dir):
+        os.mkdir(module_dir)
+
+
     global_module = parser.global_module
     filename = '%s_InPort_%s.py' % (name, typename.replace('::', '_').strip())
-    f = open(filename, 'w')
+    f = open(os.path.join(module_dir, filename), 'w')
     import value_dic as vd
     value_dic = vd.generate_value_dic(global_module, typename, root_name='data', verbose=verbose)
     """

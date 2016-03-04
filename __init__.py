@@ -123,6 +123,9 @@ class Plugin(PluginFunction):
             import inport_converter as ip
             ip.create_inport_converter_module(admin.idl.get_idl_parser(), name, typename, verbose=verbose)
 
+            import outport_converter as op
+            op.create_outport_converter_module(admin.idl.get_idl_parser(), name, typename, verbose=verbose)
+
 
         elif language == 'dart':
             admin.idl.parse()

@@ -110,7 +110,7 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
     def _onAddInPort(self, message):
         name = message.split(' ')[0].strip()
         typename = message.split(' ')[1].strip()
-        print 'AddInPort', name, typename
+        if self._verbose: print 'AddInPort', name, typename
 
         idl_plugin.parse()
         import inport_converter as ip
@@ -118,7 +118,7 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
         ip.create_inport_converter_module(idl_plugin.get_idl_parser(), name, typename, verbose=verbose)
 
         modulename = name.strip() + '_InPort_' + typename.replace('::', '_').strip()
-        print 'module:', modulename
+        if self._verbose: print 'module:', modulename
         import rtcomponent
         rtcomponent.component.load(modulename)
         return True
@@ -126,7 +126,7 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
     def _onAddOutPort(self, message):
         name = message.split(' ')[0].strip()
         typename = message.split(' ')[1].strip()
-        print 'AddOutPort', name, typename
+        if self._verbose: print 'AddOutPort', name, typename
 
         idl_plugin.parse()
         import outport_converter as op
@@ -134,7 +134,7 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
         op.create_outport_converter_module(idl_plugin.get_idl_parser(), name, typename, verbose=verbose)
 
         modulename = name.strip() + '_OutPort_' + typename.replace('::', '_').strip()
-        print 'module:', modulename
+        if self._verbose: print 'module:', modulename
         import rtcomponent
         rtcomponent.component.load(modulename)
         return True
@@ -148,7 +148,7 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
     # when connection disconnected.
     def on_close(self):
         #self.callback.stop()
-        print " - WebSocket closed"
+        if self._verbose: print " - WebSocket closed"
         self._ready = False
         import rtcomponent
         try:
