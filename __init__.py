@@ -81,12 +81,13 @@ class Plugin(PluginFunction):
         
         from tornado.options import define, options, parse_command_line
 
-        import handler
+        from host import handler
         handler.idl_plugin = admin.idl
 
-        import rtcomponent as rtcomp
-
-        rtcomp.main(['wsconverter'])
+        from host import rtcomponent as rtcomp
+        
+        confpath = os.path.join(__path__[0], 'host', 'rtc.conf')
+        rtcomp.main(['wsconverter', '-f', confpath])
 
         sys.stdout.write('- Starting WebSocket Server.\n')
 
