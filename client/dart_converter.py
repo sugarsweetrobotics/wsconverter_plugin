@@ -125,8 +125,6 @@ def generate_class_dart(global_module, typename):
     global _parsed_types
     #self._parsed_types = []
 
-    #value_dic = self.generate_value_dic(typename, verbose=False)
-
     def _parse_typedef(typ):
         if not typ.type.is_primitive:
             if typ.type.obj.is_struct:

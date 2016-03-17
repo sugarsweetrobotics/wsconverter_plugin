@@ -117,20 +117,19 @@ class Plugin(PluginFunction):
             name = argv[3]
             typename = argv[4]
             
-            #value_dic = self.generate_value_dic(typename, verbose=verbose)
             admin.idl.parse()
             #gm = admin.idl.get_global_module()
-            import inport_converter as ip
+            from host import inport_converter as ip
             ip.create_inport_converter_module(admin.idl.get_idl_parser(), name, typename, verbose=verbose)
 
-            import outport_converter as op
+            from host import outport_converter as op
             op.create_outport_converter_module(admin.idl.get_idl_parser(), name, typename, verbose=verbose)
 
 
         elif language == 'dart':
             admin.idl.parse()
 
-            import dart_converter as dc
+            from client import dart_converter as dc
             dc.generate_converter(admin.idl.get_idl_parser(), verbose=verbose)
             
         return 0
