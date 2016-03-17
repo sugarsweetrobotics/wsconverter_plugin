@@ -3,10 +3,6 @@ import sys, types
 def generate_value_dic(global_module, typename, root_name='_d_data', verbose=False):
     import yaml
     
-    #admin.idl.parse()
-    
-    #gm = admin.idl.get_global_module()
-    
     typs = global_module.find_types(typename)
     if len(typs) == 0:
         sys.stdout.write('# Error. Type(%s) not found.\n' % typename)
@@ -19,16 +15,30 @@ def generate_value_dic(global_module, typename, root_name='_d_data', verbose=Fal
 
     value_names_ = {}
     
+    def _parse_array(value_names, value, context):
+        kakko_index = value.find('[')
+        kokka_index = kakko_index + value[value.find('['):].find(']')
+        size = int(value[kakko_index+1 : kokka_index])
+        next_value = value[:kakko_index] + value[kokka_index+1:]
+        typename = value.split(' ')[0]
+        for i in range(size):
+            n = context + '(%s)' % i
+            if next_value.find('[') >= 0:
+                _parse_array(value_names, next_value, n)
+            else:
+                value_names[n] = typename
+            
     def _parse_dic(value_names, dic, context, prev_type=''):
         for name, value in dic.items():
             if name.startswith('typedef'):
                 if type(value) is types.StringType:
-                    #print value
-                    #raw_input()
+                    if value.find('[') >= 0:
+                        _parse_array(value_names, value, context)
                     pass
                 else:
                     _parse_dic(value_names, value, context)
             elif name.strip().startswith('sequence'):
+                print 'sequence!'
                 elems_ = []
                 tn = name[name.find('<')+1:name.rfind('>')]
                 _parse_sequence(value_names, value, context, prev_type=tn)
@@ -80,11 +90,13 @@ def generate_value_dic(global_module, typename, root_name='_d_data', verbose=Fal
                 value_names_[n_] = value[:value.find(vn)].strip()
             elif type(value) is types.DictType:
                 _parse_dic(value_names_, value, root_name)
-            #_parse_sub(value)
 
 
-    if verbose: print yaml.dump(value_names_, default_flow_style=False)
-
+    if verbose:
+        print '---' * 10
+        print '---', 'value_dic', '---'
+        print yaml.dump(value_names_, default_flow_style=False)
+        print '---' * 10
     
     return value_names_
 

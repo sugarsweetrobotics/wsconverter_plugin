@@ -104,6 +104,9 @@ def create_converter(value_dic, list_name= '_d_list', indent = '', context = '')
                 pass
         else:
             context_name = context + '.' + key if len(context) > 0 else key
+            context_name = context_name.replace('(', '[')
+            context_name = context_name.replace(')', ']')
+
             code = code + '%s%s.append(str(%s))\n' % (indent_, list_name, context_name) 
             pass
     return code

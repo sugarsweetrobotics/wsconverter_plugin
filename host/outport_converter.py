@@ -79,13 +79,16 @@ def create_outport_converter_module(parser, name, typename, verbose=False):
 def create_converter(value_dic, list_name= '_d_list', indent = '', context = ''):
     int_types = ['long', 'long long', 'unsigned long', 'short', 'unsigned short', 'char', 'unsigned char', 'byte', 'unsigned byte', 'octet']
     float_types = ['float', 'double', 'long double']
-
+    print '-----' * 5
+    print value_dic
+    print '-----' * 5
     indent_ = '' + indent
     code = ''
     keys_ = value_dic.keys()
     keys_.sort()
     #for key, value in value_dic.items():
     for key in keys_:
+
         value = value_dic[key]
         if key.find(']') > 0: # Sequence
             context_name = context + '.' + key if len(context) > 0 else key
@@ -119,6 +122,8 @@ def create_converter(value_dic, list_name= '_d_list', indent = '', context = '')
                 pass
         else:
             context_name = context + '.' + key if len(context) > 0 else key
+            context_name = context_name.replace('(', '[')
+            context_name = context_name.replace(')', ']')
             if value in int_types:
                 code = code + '%s%s = int(it.next())\n' % (indent_, context_name)
             elif value in float_types:
