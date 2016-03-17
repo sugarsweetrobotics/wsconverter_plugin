@@ -266,6 +266,14 @@ class wsconverter(OpenRTM_aist.DataFlowComponentBase):
 			traceback.print_exc()
 		return None
 
+	def removeAllPort(self):
+		for inport in self._inports:
+			print 'removing ', inport
+			print self.removePort(inport)
+
+		for outport in self._outports:
+			print 'removing ', outport
+			print self.removePort(outport)
 
 component = None
 

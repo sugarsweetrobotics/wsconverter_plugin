@@ -95,6 +95,14 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
                 self.write_message('wsconverter addOutPort true')
             else:
                 self.write_message('wsconverter addOutPort false')
+        if message.startswith('removeAllPort'):
+            if self._onRemoveAllPort():
+                print 'true'
+                self.write_message('wsconverter removeAllPort true')
+            else:
+                self.write_message('wsconverter removeAllPort false')
+
+
 
     def _on_OutPort(self, message):
         if self._verbose: print 'OutPort message: ', message
@@ -105,6 +113,11 @@ class SendWebSocket(tornado.websocket.WebSocketHandler):
             return
         self.outports[name](d_[name])
             
+    def _onRemoveAllPort(self):
+        if self._verbose: print 'removeAllPort'
+        import rtcomponent
+        rtcomponent.component.removeAllPort()
+        return True
         
 
     def _onAddInPort(self, message):
