@@ -55,6 +55,63 @@ def _apply_post_process_dart(code):
     return code
 
 
+int_types = ['unsigned long', 'unsigned short', 'unsigned long long', 'unsigned char', 'long', 'short', 'char', 'byte', 'octet', 'wchar']
+double_types = ['double', 'long double', 'float']
+
+
+def _type_filter(n, global_module):
+    if n == 'string' or n == 'wstring':
+        n = 'String'
+    elif n == 'boolean':
+        n = 'bool'
+    elif n in int_types:
+        n = 'int'
+    elif n in double_types:
+        n = 'double'
+    elif n.startswith('sequence'):
+        n_ = n[n.find('<')+1:n.rfind('>')]
+        n = 'sequence<%s>' % _type_filter(n_, global_module)
+    elif n.find('[') > 0:
+        primitive_type = n[:n.find('[')]
+        inner_type = primitive_type + n[n.find(']')+1:]
+        num_elem = int(n[n.find('[')+1:n.find(']')])
+        n = 'List<%s>' % _type_filter(inner_type, global_module)
+    else:
+        typs = global_module.find_types(n)
+        if len(typs) > 0:
+            if typs[0].is_enum:
+                n = 'int'
+    return n
+
+
+def _type_name(m_type, module_name):
+    if not m_type.is_primitive:
+        if m_type.obj.is_typedef:
+            m_type = m_type.obj.type
+    return m_type.basename if m_type.pathname == module_name else m_type.name
+
+def _default_value(n):
+    if n.find('[') > 0:
+        primitive_type = n[:n.find('[')]
+        inner_type = primitive_type + n[n.find(']')+1:]
+        num_elem = int(n[n.find('[')+1:n.find(']')])
+        s = '['
+        for i in range(num_elem):
+            s = s + _default_value(inner_type)
+            if i != num_elem-1:
+                s = s + ', '
+        s = s + ']'
+        return s
+    elif n in double_types:
+        return "0.0"
+    elif n == 'string' or n == 'wstring':
+        return '""'
+    elif n == 'boolean':
+        return "false"
+    else:
+        return "0"
+    return "__ERROR__"
+        
 def generate_class_dart(global_module, typename):
     gm = global_module
     #gm = admin.idl.get_global_module()
@@ -81,9 +138,9 @@ def generate_class_dart(global_module, typename):
         pass
 
 
-
     def _parse_struct(typ):
         # print 'Parsing struct ', typ.full_path
+            
         code = ''
         if typ.full_path in _parsed_types:
             return code
@@ -94,9 +151,12 @@ def generate_class_dart(global_module, typename):
         module_name = typ.full_path
         if module_name.find('::') > 0:
             module_name = module_name[:module_name.rfind('::')]
-
+        #print typ.name
         for m in typ.members:
+            #print m.name
             if m.type.is_primitive:
+                pass
+            elif m.type.is_array:
                 pass
             elif m.type.obj.is_struct:
                 _parse_struct(m.type.obj)
@@ -113,15 +173,11 @@ def generate_class_dart(global_module, typename):
                     m_type = m.type.obj.type # = 'typedef'
 
             n = m_type.basename if m_type.pathname == module_name else m_type.name
-            int_types = ['unsigned long', 'unsigned short', 'unsigned long long', 'unsigned char', 'long', 'short', 'char', 'byte', 'octet']
-            double_types = ['double', 'long double', 'float']
-            if n == 'string':
-                n = 'String'
-            elif n in int_types:
-                n = 'int'
-            elif n in double_types:
-                n = 'double'
+            n = _type_filter(n, global_module)
             code = code + '  %s %s;\n' %(n, m.name)
+
+        #int_types = ['unsigned long', 'unsigned short', 'unsigned long long', 'unsigned char', 'long', 'short', 'char', 'byte', 'octet']
+        #double_types = ['double', 'long double', 'float']
 
         # Zero Constructor
         code = code + '\n\n'
@@ -134,12 +190,18 @@ def generate_class_dart(global_module, typename):
                     m_type = m.type.obj.type # = 'typedef'
             n = m_type.basename if m_type.pathname == module_name else m_type.name
 
-            if m_type.is_sequence:
+            if m_type.name.find('[') > 0:
+                code = code + '    %s = %s;\n' % (m.name, _default_value(n))
+            elif m_type.is_sequence:
                 code = code + '    %s = [];\n' % m.name
             elif m_type.is_primitive:
-                code = code + '    %s = 0;\n' %(m.name)                    
+                code = code + '    %s = %s;\n' % (m.name, _default_value(n))
             elif m_type.obj.is_struct:
                 code = code + '    %s = new %s.zeros();\n' % (m.name, n)
+            elif m_type.obj.is_enum:
+                code = code + '    %s = 0;\n' % (m.name)
+            else:
+                print m_type
         code = code + '  }\n'
         #
 
@@ -155,15 +217,7 @@ def generate_class_dart(global_module, typename):
                     m_type = m.type.obj.type # = 'typedef'
             n = m_type.basename if m_type.pathname == module_name else m_type.name
 
-            int_types = ['unsigned long', 'unsigned short', 'unsigned long long', 'unsigned char', 'long', 'short', 'char', 'byte', 'octet']
-            double_types = ['double', 'long double', 'float']
-            if n == 'string':
-                n = 'String'
-            elif n in int_types:
-                n = 'int'
-            elif n in double_types:
-                n = 'double'
-
+            n = _type_filter(n, global_module)
 
             code = code + '%s %s, ' % (n, m.name + '_')
         code = code[:-2]
@@ -200,14 +254,28 @@ def generate_class_dart(global_module, typename):
         #for m in typ.members:
         for k in keys_:
             m = map[k]
-            m_type = m.type
-            n= None
+            m_type = m.type 
             if not m_type.is_primitive:
                 if m_type.obj.is_typedef:
-                    m_type = m.type.obj.type
-            n = m_type.basename if m_type.pathname == module_name else m_type.name
+                    m_type = m_type.obj.type
+            n= _type_name(m_type, module_name)
 
-            if m_type.is_sequence:
+            if n.find('[') > 0:
+                def _serialize_static_list(m_type, n, context, code):
+                    primitive_type = n[:n.find('[')]
+                    inner_type = primitive_type + n[n.find(']')+1:]
+                    num_elem = int(n[n.find('[')+1:n.find(']')])
+                    
+                    for i in range(num_elem):
+                        if inner_type.find('[') >= 0:
+                            code = _serialize_static_list(m_type, inner_type, context + '[%s]' % i, code)
+                        else:
+                            code = code + '    ls.add(%s[%s].toString());\n' % (context, i)
+                    return code
+
+                code = _serialize_static_list(m_type, n, m.name, code)
+                pass
+            elif m_type.is_sequence:
                 code = code + '    ls.add(%s.length.toString());\n' % m.name
                 code = code + '    %s.forEach((var elem) {\n' % m.name
                 if m_type.obj.inner_type.is_primitive:
@@ -228,6 +296,8 @@ def generate_class_dart(global_module, typename):
 
         code = code + '  int parse(List<String> ls) {\n'
         code = code + '    int index = 0;\n'
+        code = code + '    var len;\n'
+        code = code + '    bool cleared = false;\n'
 
         map = {}
         for m in typ.members:
@@ -245,17 +315,51 @@ def generate_class_dart(global_module, typename):
                 if m_type.obj.is_typedef:
                     m_type = m.type.obj.type
             n = m_type.basename if m_type.pathname == module_name else m_type.name
+            if n.find('[') > 0:
+                def _deserialize(n, context, code):
+                    primitive_type = n[:n.find('[')].strip()
+                    inner_type = primitive_type + n[n.find(']')+1:]
+                    num_elem = int(n[n.find('[')+1:n.find(']')])
+                
+                    for i in range(num_elem):
+                        if inner_type.find('[') >= 0:
+                            code = _deserialize(inner_type, context + '[%s]' % i, code)
+                        else:
+                            if primitive_type == 'boolean':
+                                code = code + '    %s[%s] = (ls[index] == "true");\n' % (context, i)
+                                code = code + '    index++;\n'
+                            elif primitive_type == 'string' or primitive_type == 'wstring':
+                                code = code + '    %s[%s] = (ls[index]);\n' % (context, i)
+                                code = code + '    index++;\n'
+                            elif primitive_type in int_types or primitive_type in double_types:
+                                code = code + '    %s[%s] = num.parse(ls[index]);\n' % (context, i)
+                                code = code + '    index++;\n'
+                            else:
+                                code = code + '    index += %s[%s].parse(ls.sublist(index));\n' % (context, i)
 
-            if m_type.is_sequence:
-                code = code + '    var len = num.parse(ls[index]);\n'
+                    return code
+                code = _deserialize(n, m.name, code)
+                pass
+            
+            elif m_type.is_sequence:
+                code = code + '    len = num.parse(ls[index]);\n'
                 code = code + '    index++;\n'
-                code = code + '    bool cleared = len != %s.length;\n' % m.name
+                code = code + '    cleared = len != %s.length;\n' % m.name
                 code = code + '    if (cleared) %s.clear();\n' % m.name
                 code = code + '    for(int i = 0;i < len;i++) {\n'
                 if m_type.inner_type.is_primitive:
-                    code = code + '      if (cleared) %s.add(num.parse(ls[index]));\n' % m.name
-                    code = code + '      else %s[i] = num.parse(ls[index]);\n' % m.name
-                    code = code + '      index++;\n'
+                    if m_type.inner_type.name == 'string' or m_type.inner_type.name == 'wstring':
+                        code = code + '      if (cleared) %s.add((ls[index]));\n' % m.name
+                        code = code + '      else %s[i] = (ls[index]);\n' % m.name
+                        code = code + '      index++;\n'
+                    elif m_type.inner_type.name == 'boolean':
+                        code = code + '      if (cleared) %s.add(ls[index] == "true");\n' % m.name
+                        code = code + '      else %s[i] = ls[index] == "true";\n' % m.name
+                        code = code + '      index++;\n'
+                    else:
+                        code = code + '      if (cleared) %s.add(num.parse(ls[index]));\n' % m.name
+                        code = code + '      else %s[i] = num.parse(ls[index]);\n' % m.name
+                        code = code + '      index++;\n'
                 elif m_type.is_struct:
                     code = code + '      if (cleared) {\n'
                     code = code + '        var v = new %s().zeros();\n' % m_type.name
@@ -267,8 +371,15 @@ def generate_class_dart(global_module, typename):
                 code = code + '    }\n'
                 pass
             elif m_type.is_primitive:
-                code = code + '    %s = num.parse(ls[index]);\n' % m.name
-                code = code + '    index++;\n'
+                if m_type.name == 'string' or m_type.name == 'wstring':
+                    code = code + '    %s = ls[index];\n' % m.name
+                    code = code + '    index++;\n'
+                elif m_type.name == 'boolean':
+                    code = code + '    %s = ls[index] == "true";\n' % m.name
+                    code = code + '    index++;\n'
+                else:
+                    code = code + '    %s = num.parse(ls[index]);\n' % m.name
+                    code = code + '    index++;\n'
             elif m_type.obj.is_struct:
                 code = code + '    index += %s.parse(ls.sublist(index));\n' % m.name
         code = code + '    return index;\n'

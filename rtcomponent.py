@@ -280,7 +280,7 @@ def MyModuleInit(manager):
 
     # Create a component
     global component
-    component = manager.createComponent("wsconverter")
+    component = manager.createComponent("wsconverter?naming.formats=%n.rtc&logger.enable=NO")
 
 
 def main(argv=[]):
